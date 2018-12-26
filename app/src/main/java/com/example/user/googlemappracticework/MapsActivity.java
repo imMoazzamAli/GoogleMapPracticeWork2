@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Camera;
 import android.location.Address;
 import android.location.Geocoder;
+import android.location.LocationManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
@@ -15,6 +16,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,6 +37,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private EditText etSearch;
 
+    View mapView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,8 +49,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        etSearch = findViewById(R.id.etSearch);
+        mapView = mapFragment.getView();
 
+        etSearch = findViewById(R.id.etSearch);
         etSearch.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -58,6 +63,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
         });
+
     }
 
     @Override
@@ -65,31 +71,51 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap = googleMap;
 
         // Add a marker in Gujranwala and move/animate the camera
-        LatLng latLng = new LatLng(-34, 151);
+        LatLng latLng = new LatLng(32.073419, 74.210114);
         MarkerOptions options = new MarkerOptions()
                 .title("This is title")
                 .position(latLng);
         mMap.addMarker(options);
 
         //animate camera here
-        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(latLng, 5);
+        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(latLng, 10);
         mMap.animateCamera(update);
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             Toast.makeText(this, "Grant the Permission", Toast.LENGTH_LONG).show();
             return;
         }
         mMap.setMyLocationEnabled(true);
-
         mMap.getUiSettings().setCompassEnabled(true);
         mMap.getUiSettings().setZoomControlsEnabled(true);
+
+        moveLocationIconBelowEditText();
+        locationBtnClick();
+
+    }
+
+    public void moveLocationIconBelowEditText() {
+        View locationButton = ((View) mapView.findViewById(Integer.parseInt("1")).getParent()).findViewById(Integer.parseInt("2"));
+        RelativeLayout.LayoutParams rlp = (RelativeLayout.LayoutParams) locationButton.getLayoutParams();
+        // position on right bottom
+        rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+        rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
+        rlp.setMargins(0, 280, 100, 30);
+    }
+
+    public void locationBtnClick() {
+        mMap.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
+            @Override
+            public boolean onMyLocationButtonClick() {
+                LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+                if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    Toast.makeText(MapsActivity.this, "GPS is disabled.", Toast.LENGTH_LONG).show();
+                    return true;
+
+                } else
+                    return false;
+            }
+        });
     }
 
     public void goToLocationZoom(double lat, double lng, float zoom) {
@@ -112,7 +138,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             double lat = address.getLatitude();
             double lng = address.getLongitude();
-            goToLocationZoom(lat, lng, 20);
+            goToLocationZoom(lat, lng, 10);
 
         } catch (IOException e) {
             Toast.makeText(this, "in catch block", Toast.LENGTH_SHORT).show();
