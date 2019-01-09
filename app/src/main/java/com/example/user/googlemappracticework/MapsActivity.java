@@ -23,6 +23,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.user.googlemappracticework.Model.ModelLocationData;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -38,6 +39,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener {
@@ -49,14 +51,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Location currentLocation;
     private LocationManager locationManager;
     private static final long MIN_TIME = 0;
-    private static final float MIN_DISTANCE = 100;
+    private static final float MIN_DISTANCE = 1000;
 
+    private Marker myLocationMarker;
     private Marker marker;
 
     View mapView;
 
     FirebaseDatabase firebaseDatabase;
     DatabaseReference dbReferenceLocation;
+
+    ArrayList<ModelLocationData> listData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,8 +76,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         //below VIEW is used for moving location button to specific position
         mapView = mapFragment.getView();
 
-        firebaseDatabase= FirebaseDatabase.getInstance();
-        dbReferenceLocation=firebaseDatabase.getReference("LOCATIONS");
+        firebaseDatabase = FirebaseDatabase.getInstance();
+        dbReferenceLocation = firebaseDatabase.getReference("LOCATIONS");
+
+        listData = new ArrayList<>();
 
         etSearch = findViewById(R.id.etSearch);
         etSearch.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -107,11 +114,53 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void saveToFirebase(final Location location) {
 
-        String id= dbReferenceLocation.push().getKey();
+        final String id = dbReferenceLocation.push().getKey();
+
+        final String name = "ali@gmail.com";
+        final Double latitude = location.getLatitude();
+        final Double longitude = location.getLongitude();
 
         dbReferenceLocation.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                int i = 0;
+
+                //first time there will be no data. So checked it here
+                if (dataSnapshot.getValue() != null) {
+
+                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                        i++;
+                        ModelLocationData data = snapshot.getValue(ModelLocationData.class);
+
+                        if (data.getLatitude().equals(latitude) && data.getLongitude().equals(longitude) && data.getName().equals(name)) {
+                            Toast.makeText(MapsActivity.this, "nothing changed", Toast.LENGTH_SHORT).show();
+                            break;
+
+                        } else if ((!data.getLatitude().equals(latitude) && !data.getLongitude().equals(longitude)) && data.getName().equals(name)) {
+                            Toast.makeText(MapsActivity.this, "LatLng changed", Toast.LENGTH_SHORT).show();
+
+                            String id = snapshot.getKey();
+                            ModelLocationData updatedData = new ModelLocationData(name, latitude, longitude);
+                            dbReferenceLocation.child(id).setValue(updatedData);
+                            break;
+                        }
+
+                        if (i == dataSnapshot.getChildrenCount()) {
+                            Toast.makeText(MapsActivity.this, "At the end of table i.e. New Entry", Toast.LENGTH_SHORT).show();
+
+                            String id = dbReferenceLocation.getKey();
+                            ModelLocationData value = new ModelLocationData(name, latitude, longitude);
+                            dbReferenceLocation.child(id).setValue(value);
+                        }
+                    }//end of loop
+
+                } else {
+                    //this else work  only once when there is no data at very beginning
+
+                    ModelLocationData modelLocationData = new ModelLocationData(name, latitude, longitude);
+                    dbReferenceLocation.child(id).setValue(modelLocationData);
+                }
 
 
             }
@@ -140,18 +189,52 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap.animateCamera(update);*/
 
         // Add (second way) a marker in Gujranwala and move/animate the camera
-        marker = mMap.addMarker(new MarkerOptions().position(new LatLng(32, 74)).title("Title Here"));
+        marker = mMap.addMarker(new MarkerOptions().position(new LatLng(32.112910, 74.163596)).title("Just for testing"));
+
+        locationBtnClick();
+        moveLocationIconBelowEditText();
+        showMarkers();
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Grant the Permission", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Grant the Location Permission", Toast.LENGTH_LONG).show();
             return;
         }
         mMap.setMyLocationEnabled(true);
         mMap.getUiSettings().setCompassEnabled(true);
         mMap.getUiSettings().setZoomControlsEnabled(true);
 
-        moveLocationIconBelowEditText();
-        locationBtnClick();
+    }
+
+    public void showMarkers() {
+
+        //mMap.clear();
+
+        dbReferenceLocation.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    ModelLocationData data = snapshot.getValue(ModelLocationData.class);
+                    listData.add(data);
+                }
+
+                for (int i = 0; i < listData.size(); i++) {
+
+                    String name = listData.get(i).getName();
+                    Double latitude = listData.get(i).getLatitude();
+                    Double longitude = listData.get(i).getLongitude();
+
+                    marker = mMap.addMarker(new MarkerOptions().title(name).position(new LatLng(latitude, longitude)));
+                }
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
 
     }
 
@@ -215,20 +298,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
-        //mMap.clear();
-        goToLocationZoom(location.getLatitude(), location.getLongitude(), 15);
 /*
-        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-        MarkerOptions options = new MarkerOptions()
-                .title("This is my Location")
-                .position(latLng);
-        mMap.addMarker(options);
-*/
-
-        marker.remove();
-        marker = mMap.addMarker(new MarkerOptions()
+        //mMap.clear();
+        if (myLocationMarker.isVisible()) {
+            myLocationMarker.remove();
+        }
+        myLocationMarker = mMap.addMarker(new MarkerOptions()
                 .position(new LatLng(location.getLatitude(), location.getLongitude()))
                 .title("My Location"));
+*/
+
+        goToLocationZoom(location.getLatitude(), location.getLongitude(), 15);
 
         saveToFirebase(location);
     }

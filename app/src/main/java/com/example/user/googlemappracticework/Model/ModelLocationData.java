@@ -5,13 +5,13 @@ import java.io.Serializable;
 public class ModelLocationData implements Serializable {
 
     private String name;
-    private String latitude;
-    private String longitude;
+    private Double latitude;
+    private Double longitude;
 
     public ModelLocationData() {
     }
 
-    public ModelLocationData(String name, String latitude, String longitude) {
+    public ModelLocationData(String name, Double latitude, Double longitude) {
         this.name = name;
         this.latitude = latitude;
         this.longitude = longitude;
@@ -25,19 +25,19 @@ public class ModelLocationData implements Serializable {
         this.name = name;
     }
 
-    public String getLatitude() {
+    public Double getLatitude() {
         return latitude;
     }
 
-    public void setLatitude(String latitude) {
+    public void setLatitude(Double latitude) {
         this.latitude = latitude;
     }
 
-    public String getLongitude() {
+    public Double getLongitude() {
         return longitude;
     }
 
-    public void setLongitude(String longitude) {
+    public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
 }
