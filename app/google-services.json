@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "295984911496",
+    "firebase_url": "https://mappractical-71106.firebaseio.com",
+    "project_id": "mappractical-71106",
+    "storage_bucket": "mappractical-71106.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:295984911496:android:5586aa9247d37b1d",
+        "android_client_info": {
+          "package_name": "com.example.user.googlemappracticework"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "295984911496-gfqgg72l4ih71k7gkj5lvep6ebbs9rrf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.user.googlemappracticework",
+            "certificate_hash": "aa37502852dbdd366281785dc3f099f2eecf8b18"
+          }
+        },
+        {
+          "client_id": "295984911496-42st06qh5e6rnf3idph9386p7fjbpvhg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIAIaaHPcoQ1GiZxk4g0_z1IRLq6wpDHE"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "295984911496-42st06qh5e6rnf3idph9386p7fjbpvhg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

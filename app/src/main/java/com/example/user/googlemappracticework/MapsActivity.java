@@ -50,8 +50,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private Location currentLocation;
     private LocationManager locationManager;
-    private static final long MIN_TIME = 0;
-    private static final float MIN_DISTANCE = 1000;
+    private static final long MIN_TIME = 10000;      //Minimum time in milliseconds(1000ms means 1sec)
+    private static final float MIN_DISTANCE = 20;    //Minimum distance in meters (1meter means 3.28feet)
 
     private Marker myLocationMarker;
     private Marker marker;
@@ -134,12 +134,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         ModelLocationData data = snapshot.getValue(ModelLocationData.class);
 
                         if (data.getLatitude().equals(latitude) && data.getLongitude().equals(longitude) && data.getName().equals(name)) {
-                            Toast.makeText(MapsActivity.this, "nothing changed", Toast.LENGTH_SHORT).show();
+                            //Toast.makeText(MapsActivity.this, "nothing changed", Toast.LENGTH_SHORT).show();
                             break;
 
                         } else if ((!data.getLatitude().equals(latitude) && !data.getLongitude().equals(longitude)) && data.getName().equals(name)) {
-                            Toast.makeText(MapsActivity.this, "LatLng changed", Toast.LENGTH_SHORT).show();
-
+                            //Toast.makeText(MapsActivity.this, "LatLng changed", Toast.LENGTH_SHORT).show();
                             String id = snapshot.getKey();
                             ModelLocationData updatedData = new ModelLocationData(name, latitude, longitude);
                             dbReferenceLocation.child(id).setValue(updatedData);
@@ -147,8 +146,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
 
                         if (i == dataSnapshot.getChildrenCount()) {
-                            Toast.makeText(MapsActivity.this, "At the end of table i.e. New Entry", Toast.LENGTH_SHORT).show();
-
+                            //Toast.makeText(MapsActivity.this, "At the end of table i.e. New Entry", Toast.LENGTH_SHORT).show();
                             String id = dbReferenceLocation.getKey();
                             ModelLocationData value = new ModelLocationData(name, latitude, longitude);
                             dbReferenceLocation.child(id).setValue(value);
@@ -161,7 +159,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     ModelLocationData modelLocationData = new ModelLocationData(name, latitude, longitude);
                     dbReferenceLocation.child(id).setValue(modelLocationData);
                 }
-
 
             }
 
@@ -191,9 +188,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Add (second way) a marker in Gujranwala and move/animate the camera
         marker = mMap.addMarker(new MarkerOptions().position(new LatLng(32.112910, 74.163596)).title("Just for testing"));
 
+        showMarkers();
         locationBtnClick();
         moveLocationIconBelowEditText();
-        showMarkers();
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "Grant the Location Permission", Toast.LENGTH_LONG).show();
@@ -207,19 +204,24 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void showMarkers() {
 
-        //mMap.clear();
-
         dbReferenceLocation.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
 
+                mMap.clear();
+                marker.remove();
+
+                if (!listData.isEmpty()){
+                    listData.clear();
+                }
                 for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
                     ModelLocationData data = snapshot.getValue(ModelLocationData.class);
+                    //Toast.makeText(MapsActivity.this, "for" + data.getLatitude(), Toast.LENGTH_SHORT).show();
                     listData.add(data);
                 }
 
                 for (int i = 0; i < listData.size(); i++) {
-
+                    //Toast.makeText(MapsActivity.this, "for" + i, Toast.LENGTH_SHORT).show();
                     String name = listData.get(i).getName();
                     Double latitude = listData.get(i).getLatitude();
                     Double longitude = listData.get(i).getLongitude();
@@ -315,17 +317,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-
     }
 
     @Override
     public void onProviderDisabled(String provider) {
-
     }
 
     @Override
