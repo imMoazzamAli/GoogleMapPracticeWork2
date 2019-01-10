@@ -3,11 +3,13 @@ package com.example.user.googlemappracticework;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Camera;
+import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
@@ -29,17 +31,28 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener {
@@ -62,6 +75,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     DatabaseReference dbReferenceLocation;
 
     ArrayList<ModelLocationData> listData;
+
+    //Route DataMembers
+    private static final int LOCATION_REQUEST = 500;
+    ArrayList<LatLng> listPoints;
+    private static final String MY_API_KEY = "AIzaSyBU3yLZJsq93give9SYv--5ts-34B02m7Q";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,63 +129,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         //getCurrent location without  pressing any button
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME, MIN_DISTANCE, this);
 
-    }
-
-    public void saveToFirebase(final Location location) {
-
-        final String id = dbReferenceLocation.push().getKey();
-
-        final String name = "ali@gmail.com";
-        final Double latitude = location.getLatitude();
-        final Double longitude = location.getLongitude();
-
-        dbReferenceLocation.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-
-                int i = 0;
-
-                //first time there will be no data. So checked it here
-                if (dataSnapshot.getValue() != null) {
-
-                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                        i++;
-                        ModelLocationData data = snapshot.getValue(ModelLocationData.class);
-
-                        if (data.getLatitude().equals(latitude) && data.getLongitude().equals(longitude) && data.getName().equals(name)) {
-                            //Toast.makeText(MapsActivity.this, "nothing changed", Toast.LENGTH_SHORT).show();
-                            break;
-
-                        } else if ((!data.getLatitude().equals(latitude) && !data.getLongitude().equals(longitude)) && data.getName().equals(name)) {
-                            //Toast.makeText(MapsActivity.this, "LatLng changed", Toast.LENGTH_SHORT).show();
-                            String id = snapshot.getKey();
-                            ModelLocationData updatedData = new ModelLocationData(name, latitude, longitude);
-                            dbReferenceLocation.child(id).setValue(updatedData);
-                            break;
-                        }
-
-                        if (i == dataSnapshot.getChildrenCount()) {
-                            //Toast.makeText(MapsActivity.this, "At the end of table i.e. New Entry", Toast.LENGTH_SHORT).show();
-                            String id = dbReferenceLocation.getKey();
-                            ModelLocationData value = new ModelLocationData(name, latitude, longitude);
-                            dbReferenceLocation.child(id).setValue(value);
-                        }
-                    }//end of loop
-
-                } else {
-                    //this else work  only once when there is no data at very beginning
-
-                    ModelLocationData modelLocationData = new ModelLocationData(name, latitude, longitude);
-                    dbReferenceLocation.child(id).setValue(modelLocationData);
-                }
-
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
-        });
+        listPoints = new ArrayList<>();
 
     }
 
@@ -174,18 +137,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        // Add (first way) a marker in Gujranwala and move/animate the camera
- /*      LatLng latLng = new LatLng(32.073419, 74.210114);
-        MarkerOptions options = new MarkerOptions()
-                .title("This is title")
-                .position(latLng);
-        mMap.addMarker(options);
-
-        //animate camera here
-        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(latLng, 10);
-        mMap.animateCamera(update);*/
-
-        // Add (second way) a marker in Gujranwala and move/animate the camera
         marker = mMap.addMarker(new MarkerOptions().position(new LatLng(32.112910, 74.163596)).title("Just for testing"));
 
         showMarkers();
@@ -200,7 +151,168 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap.getUiSettings().setCompassEnabled(true);
         mMap.getUiSettings().setZoomControlsEnabled(true);
 
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+
+                //Reset marker when already 2
+                if (listPoints.size() == 2) {
+                    listPoints.clear();
+                    mMap.clear();
+                }
+                //Save first point select
+                listPoints.add(latLng);
+                //Create marker
+                MarkerOptions markerOptions = new MarkerOptions();
+                markerOptions.position(latLng);
+
+                if (listPoints.size() == 1) {
+                    //Add first marker to the map
+                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
+                } else {
+                    //Add second marker to the map
+                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                }
+                mMap.addMarker(markerOptions);
+
+                if (listPoints.size() == 2) {
+                    //Create the URL to get request from first marker to second marker
+                    String url = getRequestUrl(listPoints.get(0), listPoints.get(1));
+                    TaskRequestDirections taskRequestDirections = new TaskRequestDirections();
+                    taskRequestDirections.execute(url);
+                }
+
+            }
+        });
     }
+
+    private String getRequestUrl(LatLng origin, LatLng dest) {
+        //Value of origin
+        String str_org = "origin=" + origin.latitude + "," + origin.longitude;
+        //Value of destination
+        String str_dest = "destination=" + dest.latitude + "," + dest.longitude;
+        //Set value enable the sensor
+        String sensor = "sensor=false";
+        //Mode for find direction
+        String mode = "mode=driving";
+        //Build the full param
+        String param = str_org + "&" + str_dest + "&" + sensor + "&" + mode;
+        //Output format
+        String output = "json";
+        //Create url to request
+        String url = "https://maps.googleapis.com/maps/api/directions/" + output + "?" + param + "&key=" + MY_API_KEY;
+        return url;
+    }
+
+    private String requestDirection(String reqUrl) throws IOException {
+        String responseString = "";
+        InputStream inputStream = null;
+        HttpURLConnection httpURLConnection = null;
+        try {
+            URL url = new URL(reqUrl);
+            httpURLConnection = (HttpURLConnection) url.openConnection();
+            httpURLConnection.connect();
+
+            //Get the response result
+            inputStream = httpURLConnection.getInputStream();
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+
+            StringBuffer stringBuffer = new StringBuffer();
+            String line = "";
+            while ((line = bufferedReader.readLine()) != null) {
+                stringBuffer.append(line);
+            }
+
+            responseString = stringBuffer.toString();
+            bufferedReader.close();
+            //inputStreamReader.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+            httpURLConnection.disconnect();
+        }
+        return responseString;
+    }
+
+
+    public class TaskRequestDirections extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... strings) {
+            String responseString = "";
+            try {
+                responseString = requestDirection(strings[0]);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return responseString;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            //Parse json here
+            TaskParser taskParser = new TaskParser();
+            taskParser.execute(s);
+        }
+    }
+
+    public class TaskParser extends AsyncTask<String, Void, List<List<HashMap<String, String>>>> {
+
+        @Override
+        protected List<List<HashMap<String, String>>> doInBackground(String... strings) {
+            JSONObject jsonObject = null;
+            List<List<HashMap<String, String>>> routes = null;
+            try {
+                jsonObject = new JSONObject(strings[0]);
+                DirectionsParser directionsParser = new DirectionsParser();
+                routes = directionsParser.parse(jsonObject);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return routes;
+        }
+
+        @Override
+        protected void onPostExecute(List<List<HashMap<String, String>>> lists) {
+            //Get list route and display it into the map
+
+            ArrayList<LatLng> points = null;
+
+            PolylineOptions polylineOptions = null;
+
+            for (List<HashMap<String, String>> path : lists) {
+                points = new ArrayList<>();
+                polylineOptions = new PolylineOptions();
+
+                for (HashMap<String, String> point : path) {
+                    double lat = Double.parseDouble(point.get("lat"));
+                    double lon = Double.parseDouble(point.get("lon"));
+
+                    points.add(new LatLng(lat, lon));
+                }
+
+                polylineOptions.addAll(points);
+                polylineOptions.width(15);
+                polylineOptions.color(Color.BLUE);
+                polylineOptions.geodesic(true);
+            }
+
+            if (polylineOptions != null) {
+                mMap.addPolyline(polylineOptions);
+            } else {
+                Toast.makeText(getApplicationContext(), "Direction not found!", Toast.LENGTH_SHORT).show();
+            }
+
+        }
+
+    }
+
 
     public void showMarkers() {
 
@@ -211,7 +323,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mMap.clear();
                 marker.remove();
 
-                if (!listData.isEmpty()){
+                if (!listData.isEmpty()) {
                     listData.clear();
                 }
                 for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
@@ -290,6 +402,64 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             Toast.makeText(this, "in catch block", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         }
+    }
+
+    public void saveToFirebase(final Location location) {
+
+        final String id = dbReferenceLocation.push().getKey();
+
+        final String name = "ali@gmail.com";
+        final Double latitude = location.getLatitude();
+        final Double longitude = location.getLongitude();
+
+        dbReferenceLocation.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                int i = 0;
+
+                //first time there will be no data. So checked it here
+                if (dataSnapshot.getValue() != null) {
+
+                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                        i++;
+                        ModelLocationData data = snapshot.getValue(ModelLocationData.class);
+
+                        if (data.getLatitude().equals(latitude) && data.getLongitude().equals(longitude) && data.getName().equals(name)) {
+                            //Toast.makeText(MapsActivity.this, "nothing changed", Toast.LENGTH_SHORT).show();
+                            break;
+
+                        } else if ((!data.getLatitude().equals(latitude) && !data.getLongitude().equals(longitude)) && data.getName().equals(name)) {
+                            //Toast.makeText(MapsActivity.this, "LatLng changed", Toast.LENGTH_SHORT).show();
+                            String id = snapshot.getKey();
+                            ModelLocationData updatedData = new ModelLocationData(name, latitude, longitude);
+                            dbReferenceLocation.child(id).setValue(updatedData);
+                            break;
+                        }
+
+                        if (i == dataSnapshot.getChildrenCount()) {
+                            //Toast.makeText(MapsActivity.this, "At the end of table i.e. New Entry", Toast.LENGTH_SHORT).show();
+                            String id = dbReferenceLocation.getKey();
+                            ModelLocationData value = new ModelLocationData(name, latitude, longitude);
+                            dbReferenceLocation.child(id).setValue(value);
+                        }
+                    }//end of loop
+
+                } else {
+                    //this else work  only once when there is no data at very beginning
+
+                    ModelLocationData modelLocationData = new ModelLocationData(name, latitude, longitude);
+                    dbReferenceLocation.child(id).setValue(modelLocationData);
+                }
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
     }
 
     @Override
